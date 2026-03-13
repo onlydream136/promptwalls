@@ -1,10 +1,4 @@
 node_modules/
-frontend/src/
-frontend/package.json
-frontend/package-lock.json
-frontend/tsconfig*.json
-frontend/vite.config.ts
-frontend/index.html
 backend/storage/logs/*.log
 mysql_data/
 .env.local
