@@ -1,0 +1,88 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\FileRecord;
+use App\Models\ProcessLog;
+use App\Models\SystemConfig;
+use Illuminate\Http\JsonResponse;
+
+class DashboardController extends Controller
+{
+    public function stats(): JsonResponse
+    {
+        $total = FileRecord::count();
+        $sensitive = FileRecord::whereIn('status', ['sensitive', 'desensitized'])->count();
+        $desensitized = FileRecord::where('status', 'desensitized')->count();
+        $noRisk = FileRecord::where('status', 'no_risk')->count();
+        $processing = FileRecord::whereIn('status', ['pending', 'ocr_scanning', 'assessing'])->count();
+
+        return response()->json([
+            'total_files' => $total,
+            'sensitive_detected' => $sensitive,
+            'desensitized' => $desensitized,
+            'no_risk' => $noRisk,
+            'processing' => $processing,
+        ]);
+    }
+
+    public function recent(): JsonResponse
+    {
+        $records = FileRecord::with('processLogs')
+            ->orderByDesc('updated_at')
+            ->limit(20)
+            ->get()
+            ->map(fn($r) => [
+                'id' => $r->id,
+                'filename' => $r->filename,
+                'file_type' => $r->file_type,
+                'status' => $r->status,
+                'folder' => $r->folder,
+                'created_at' => $r->created_at->toDateTimeString(),
+                'updated_at' => $r->updated_at->toDateTimeString(),
+                'latest_action' => $r->processLogs->last()?->action,
+            ]);
+
+        return response()->json($records);
+    }
+
+    public function throughput(): JsonResponse
+    {
+        // Get hourly throughput for the last 24 hours
+        $data = FileRecord::selectRaw(
+            "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') as hour, COUNT(*) as count"
+        )
+            ->where('created_at', '>=', now()->subDay())
+            ->groupBy('hour')
+            ->orderBy('hour')
+            ->get();
+
+        return response()->json($data);
+    }
+
+    public function monitor(): JsonResponse
+    {
+        $incomePath = SystemConfig::get('income_files_path', 'C:\\IncomeFiles');
+
+        $fileCount = 0;
+        $totalSize = 0;
+
+        if (is_dir($incomePath)) {
+            $files = glob($incomePath . DIRECTORY_SEPARATOR . '*');
+            $fileCount = count($files);
+            $totalSize = array_sum(array_map('filesize', array_filter($files, 'is_file')));
+        }
+
+        $lastProcessed = FileRecord::orderByDesc('updated_at')->first();
+
+        return response()->json([
+            'path' => $incomePath,
+            'status' => is_dir($incomePath) ? 'active' : 'inactive',
+            'pending_files' => $fileCount,
+            'total_size' => $totalSize,
+            'last_scan' => $lastProcessed?->updated_at?->toDateTimeString(),
+            'memory_usage' => round(memory_get_usage(true) / 1024 / 1024, 1),
+        ]);
+    }
+}

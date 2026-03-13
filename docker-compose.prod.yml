@@ -1,0 +1,99 @@
+services:
+  # PHP-FPM
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: promptwalls-app
+    restart: unless-stopped
+    volumes:
+      - ./backend:/var/www/html
+      - file_data:/data
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=promptwalls
+      - DB_USERNAME=root
+      - DB_PASSWORD=JollyChat2023
+      - QUEUE_CONNECTION=database
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - promptwalls
+
+  # Nginx (serves frontend + proxies API)
+  nginx:
+    image: nginx:alpine
+    container_name: promptwalls-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend/dist:/var/www/frontend:ro
+      - ./backend:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - promptwalls
+
+  # MySQL (local, fast)
+  mysql:
+    image: mysql:8.0
+    container_name: promptwalls-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: JollyChat2023
+      MYSQL_DATABASE: promptwalls
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    networks:
+      - promptwalls
+
+  # Queue Worker
+  queue:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: promptwalls-queue
+    restart: unless-stopped
+    command: php artisan queue:work --sleep=3 --tries=3 --timeout=300
+    volumes:
+      - ./backend:/var/www/html
+      - file_data:/data
+    environment:
+      - APP_ENV=production
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=promptwalls
+      - DB_USERNAME=root
+      - DB_PASSWORD=JollyChat2023
+      - QUEUE_CONNECTION=database
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - promptwalls
+
+volumes:
+  mysql_data:
+  file_data:
+
+networks:
+  promptwalls:
+    driver: bridge
