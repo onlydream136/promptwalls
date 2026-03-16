@@ -1,16 +1,19 @@
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 
 const titleMap: Record<string, string> = {
   '/': 'dashboard.title',
   '/files': 'files.title',
   '/reidentify': 'reidentify.title',
+  '/users': 'users.title',
   '/settings': 'settings.title',
 }
 
 export default function Header() {
   const { t, i18n } = useTranslation()
   const location = useLocation()
+  const { user } = useAuth()
 
   const titleKey = titleMap[location.pathname] || 'dashboard.title'
 
@@ -42,11 +45,11 @@ export default function Header() {
         </button>
         <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
           <div className="text-right">
-            <p className="text-xs font-medium text-slate-900">Admin</p>
-            <p className="text-[10px] text-slate-500">Security Level 4</p>
+            <p className="text-xs font-medium text-slate-900">{user?.name}</p>
+            <p className="text-[10px] text-slate-500">{user?.role === 'admin' ? t('users.admin') : t('users.operator')}</p>
           </div>
-          <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center text-slate-500 font-bold border border-slate-300">
-            AD
+          <div className="w-10 h-10 bg-brand-orange/10 rounded-full flex items-center justify-center text-brand-orange font-bold border border-brand-orange/20">
+            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
           </div>
         </div>
       </div>

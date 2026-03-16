@@ -12,9 +12,19 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class FileController extends Controller
 {
-    public function counts(): JsonResponse
+    private function scopedQuery(Request $request)
     {
-        $counts = FileRecord::query()
+        $query = FileRecord::query();
+        $user = $request->user();
+        if ($user && !$user->isAdmin()) {
+            $query->where('user_id', $user->id);
+        }
+        return $query;
+    }
+
+    public function counts(Request $request): JsonResponse
+    {
+        $counts = $this->scopedQuery($request)
             ->selectRaw("folder, COUNT(*) as count")
             ->groupBy('folder')
             ->pluck('count', 'folder')
@@ -34,7 +44,7 @@ class FileController extends Controller
         $search = $request->get('search', '');
         $perPage = (int) $request->get('per_page', 20);
 
-        $query = FileRecord::query();
+        $query = $this->scopedQuery($request);
 
         if ($folder !== 'all') {
             $query->where('folder', $folder);
@@ -105,6 +115,7 @@ class FileController extends Controller
                 'status' => 'pending',
                 'folder' => 'incoming',
                 'source_path' => $destPath,
+                'user_id' => $request->user()->id,
             ]);
 
             // Dispatch processing job

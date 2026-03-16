@@ -10,6 +10,7 @@ const config: Config = {
           blue: '#0ea5e9',
           teal: '#14b8a6',
           bg: '#f8fafc',
+          orange: '#ea580c',
         },
       },
     },

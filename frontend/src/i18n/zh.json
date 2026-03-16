@@ -3,6 +3,7 @@
     "dashboard": "仪表盘",
     "fileManager": "文件管理",
     "reidentification": "重识别工具",
+    "userManagement": "账号管理",
     "settings": "系统设置"
   },
   "common": {
@@ -115,5 +116,45 @@
     "connectionSuccess": "连接成功",
     "connectionFailed": "连接失败",
     "testing": "测试中..."
+  },
+  "login": {
+    "title": "隐私内容防火墙",
+    "subtitle": "企业级数据隐私安全保护",
+    "welcome": "欢迎回来",
+    "username": "用户名",
+    "usernamePlaceholder": "请输入您的用户名",
+    "password": "密码",
+    "passwordPlaceholder": "请输入您的密码",
+    "rememberMe": "记住我",
+    "signIn": "登录系统",
+    "noAccount": "还没有账号？",
+    "contactSales": "立即联系销售",
+    "invalidCredentials": "用户名或密码错误",
+    "accountDisabled": "账号已被禁用"
+  },
+  "users": {
+    "title": "用户管理",
+    "subtitle": "管理系统访问权限、分配用户角色及监控账号状态。",
+    "addUser": "添加用户",
+    "searchPlaceholder": "搜索账号...",
+    "username": "用户名",
+    "fullName": "姓名",
+    "role": "角色",
+    "status": "状态",
+    "lastLogin": "最后登录时间",
+    "actions": "操作",
+    "admin": "管理员",
+    "operator": "操作员",
+    "active": "启用",
+    "inactive": "禁用",
+    "showing": "显示 {{from}} 到 {{to}} 项，共 {{total}} 项",
+    "editUser": "编辑用户",
+    "createUser": "创建用户",
+    "passwordHint": "留空则不修改密码",
+    "deleteConfirm": "确定要删除该用户吗？",
+    "deleteSuccess": "用户已删除",
+    "saveSuccess": "用户信息已保存",
+    "cannotDeleteLastAdmin": "无法删除最后一个管理员",
+    "logout": "退出登录"
   }
 }

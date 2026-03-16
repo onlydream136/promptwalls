@@ -3,6 +3,7 @@
     "dashboard": "Dashboard",
     "fileManager": "File Manager",
     "reidentification": "Re-identification",
+    "userManagement": "User Management",
     "settings": "Settings"
   },
   "common": {
@@ -115,5 +116,45 @@
     "connectionSuccess": "Connected successfully",
     "connectionFailed": "Connection failed",
     "testing": "Testing..."
+  },
+  "login": {
+    "title": "Privacy Content Firewall",
+    "subtitle": "Enterprise-grade security management",
+    "welcome": "Sign In",
+    "username": "Username",
+    "usernamePlaceholder": "j.doe@company.com",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "rememberMe": "Remember me",
+    "signIn": "SIGN IN",
+    "noAccount": "Need technical assistance?",
+    "contactSales": "Contact Support",
+    "invalidCredentials": "Invalid username or password",
+    "accountDisabled": "Account is disabled"
+  },
+  "users": {
+    "title": "User Management",
+    "subtitle": "Manage system access and roles for the firewall.",
+    "addUser": "Add User",
+    "searchPlaceholder": "Search by name, email or role...",
+    "username": "Username",
+    "fullName": "Full Name",
+    "role": "Role",
+    "status": "Status",
+    "lastLogin": "Last Login",
+    "actions": "Actions",
+    "admin": "Admin",
+    "operator": "Operator",
+    "active": "Active",
+    "inactive": "Inactive",
+    "showing": "Showing {{from}} to {{to}} of {{total}} users",
+    "editUser": "Edit User",
+    "createUser": "Create User",
+    "passwordHint": "Leave empty to keep current password",
+    "deleteConfirm": "Are you sure you want to delete this user?",
+    "deleteSuccess": "User deleted",
+    "saveSuccess": "User saved successfully",
+    "cannotDeleteLastAdmin": "Cannot delete the last admin",
+    "logout": "Logout"
   }
 }

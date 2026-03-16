@@ -4,19 +4,31 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\FileRecord;
-use App\Models\ProcessLog;
 use App\Models\SystemConfig;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function stats(): JsonResponse
+    private function scopedQuery(Request $request)
     {
-        $total = FileRecord::count();
-        $sensitive = FileRecord::whereIn('status', ['sensitive', 'desensitized'])->count();
-        $desensitized = FileRecord::where('status', 'desensitized')->count();
-        $noRisk = FileRecord::where('status', 'no_risk')->count();
-        $processing = FileRecord::whereIn('status', ['pending', 'ocr_scanning', 'assessing'])->count();
+        $query = FileRecord::query();
+        $user = $request->user();
+        if ($user && !$user->isAdmin()) {
+            $query->where('user_id', $user->id);
+        }
+        return $query;
+    }
+
+    public function stats(Request $request): JsonResponse
+    {
+        $base = fn() => $this->scopedQuery($request);
+
+        $total = $base()->count();
+        $sensitive = $base()->whereIn('status', ['sensitive', 'desensitized'])->count();
+        $desensitized = $base()->where('status', 'desensitized')->count();
+        $noRisk = $base()->where('status', 'no_risk')->count();
+        $processing = $base()->whereIn('status', ['pending', 'ocr_scanning', 'assessing'])->count();
 
         return response()->json([
             'total_files' => $total,
@@ -27,9 +39,10 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function recent(): JsonResponse
+    public function recent(Request $request): JsonResponse
     {
-        $records = FileRecord::with('processLogs')
+        $records = $this->scopedQuery($request)
+            ->with('processLogs')
             ->orderByDesc('updated_at')
             ->limit(20)
             ->get()
@@ -47,12 +60,10 @@ class DashboardController extends Controller
         return response()->json($records);
     }
 
-    public function throughput(): JsonResponse
+    public function throughput(Request $request): JsonResponse
     {
-        // Get hourly throughput for the last 24 hours
-        $data = FileRecord::selectRaw(
-            "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') as hour, COUNT(*) as count"
-        )
+        $data = $this->scopedQuery($request)
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') as hour, COUNT(*) as count")
             ->where('created_at', '>=', now()->subDay())
             ->groupBy('hour')
             ->orderBy('hour')

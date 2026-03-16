@@ -10,6 +10,7 @@ class FileRecord extends Model
     protected $fillable = [
         'filename', 'file_type', 'file_size', 'status', 'folder',
         'source_path', 'output_path', 'extracted_text', 'assessment_result',
+        'user_id', 'retry_count',
     ];
 
     protected $casts = [

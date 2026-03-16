@@ -4,13 +4,14 @@
     "description": "PromptWalls - Privacy Content Firewall Backend",
     "require": {
         "php": "^8.2",
-        "laravel/framework": "^11.0",
         "guzzlehttp/guzzle": "^7.8",
-        "phpoffice/phpword": "^1.3",
-        "phpoffice/phpspreadsheet": "^2.0",
-        "smalot/pdfparser": "^2.9",
+        "laravel/framework": "^11.0",
+        "laravel/sanctum": "^4.3",
+        "laravel/tinker": "^2.9",
         "phpoffice/phppresentation": "^1.0",
-        "laravel/tinker": "^2.9"
+        "phpoffice/phpspreadsheet": "^2.0",
+        "phpoffice/phpword": "^1.3",
+        "smalot/pdfparser": "^2.9"
     },
     "require-dev": {
         "laravel/pint": "^1.0",

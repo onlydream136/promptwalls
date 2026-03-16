@@ -1,7 +1,15 @@
 import { useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '../auth/AuthContext'
 
-const navItems = [
+interface NavItem {
+  path: string
+  key: string
+  icon: JSX.Element
+  adminOnly?: boolean
+}
+
+const navItems: NavItem[] = [
   {
     path: '/',
     key: 'dashboard',
@@ -39,8 +47,22 @@ const navItems = [
     ),
   },
   {
+    path: '/users',
+    key: 'userManagement',
+    adminOnly: true,
+    icon: (
+      <path
+        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+      />
+    ),
+  },
+  {
     path: '/settings',
     key: 'settings',
+    adminOnly: true,
     icon: (
       <>
         <path
@@ -63,6 +85,9 @@ const navItems = [
 export default function Sidebar() {
   const { t } = useTranslation()
   const location = useLocation()
+  const { isAdmin, user, logout } = useAuth()
+
+  const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin)
 
   return (
     <aside className="w-64 bg-brand-navy text-white flex flex-col shrink-0">
@@ -74,7 +99,7 @@ export default function Sidebar() {
           <span className="text-lg font-bold tracking-tight">PromptWalls</span>
         </div>
         <nav className="space-y-1">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const isActive = location.pathname === item.path
             return (
               <Link
@@ -100,12 +125,29 @@ export default function Sidebar() {
           })}
         </nav>
       </div>
+
+      {/* User info & logout */}
       <div className="mt-auto p-6 bg-slate-900/50">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 bg-brand-orange rounded-full flex items-center justify-center text-white text-xs font-bold">
+            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">{user?.name}</p>
+            <p className="text-[10px] text-slate-400">{user?.role === 'admin' ? t('users.admin') : t('users.operator')}</p>
+          </div>
+          <button onClick={logout} className="p-1.5 text-slate-400 hover:text-white transition-colors" title={t('users.logout')}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
           <span className="text-xs text-slate-400">{t('dashboard.engineOnline')}</span>
         </div>
-        <div className="text-[10px] text-slate-500 uppercase tracking-widest">
+        <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">
           {t('common.version')} 1.0.0
         </div>
       </div>
