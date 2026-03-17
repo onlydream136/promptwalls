@@ -45,7 +45,7 @@ export default function Login() {
         onClick={toggleLang}
         className="absolute top-6 right-6 px-3 py-1 text-xs font-semibold border border-slate-300 rounded hover:bg-white/80 transition-colors"
       >
-        {i18n.language === 'zh' ? 'EN' : '中'}
+        {i18n.language === 'zh' ? 'EN' : '繁'}
       </button>
 
       <div className="w-full max-w-md px-4">

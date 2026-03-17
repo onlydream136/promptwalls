@@ -31,7 +31,7 @@ export default function Header() {
           onClick={toggleLang}
           className="px-3 py-1 text-xs font-semibold border border-slate-300 rounded hover:bg-slate-50 transition-colors"
         >
-          {i18n.language === 'zh' ? 'EN' : '中'}
+          {i18n.language === 'zh' ? 'EN' : '繁'}
         </button>
         <button className="p-2 text-slate-400 hover:text-brand-blue transition-colors">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
