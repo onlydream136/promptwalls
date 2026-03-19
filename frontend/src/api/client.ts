@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: 'http://voogpt.com:9006/api',
   timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 })
