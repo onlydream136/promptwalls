@@ -254,7 +254,7 @@ export default function FileManager() {
                 <>
                   <p className="text-slate-500 text-sm mt-1">{t('files.uploadDesc')}</p>
                   <div className="mt-4 flex gap-2 justify-center">
-                    {['.PDF', '.DOCX', '.XLSX', '.CSV', '.TXT'].map((ext) => (
+                    {['.PDF', '.DOCX', '.XLSX', '.CSV', '.TXT', '.PNG', '.JPG'].map((ext) => (
                       <span
                         key={ext}
                         className="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] uppercase font-bold rounded"
