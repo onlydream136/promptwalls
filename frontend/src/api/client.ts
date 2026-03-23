@@ -48,6 +48,10 @@ export const uploadFiles = (formData: FormData, onProgress?: (percent: number) =
       }
     },
   })
+export const previewFileUrl = (id: number) => {
+  const token = localStorage.getItem('token')
+  return `${api.defaults.baseURL}/files/${id}/preview?token=${token}`
+}
 export const downloadFile = (id: number) =>
   api.get(`/files/${id}/download`, { responseType: 'blob' })
 export const retryFile = (id: number) => api.post(`/files/${id}/retry`)

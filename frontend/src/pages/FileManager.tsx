@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getFiles, getFileCounts, uploadFiles, downloadFile, deleteFile, retryFile } from '../api/client'
+import { getFiles, getFileCounts, uploadFiles, downloadFile, deleteFile, retryFile, previewFileUrl } from '../api/client'
 
 interface FileItem {
   id: number
@@ -151,6 +151,23 @@ export default function FileManager() {
         type: 'error',
         message: i18n.language === 'zh' ? '重试失败' : 'Retry failed',
       })
+    }
+  }
+
+  const previewableTypes = ['pdf', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'gif', 'svg']
+
+  const handlePreview = (file: FileItem) => {
+    const ext = file.file_type.toLowerCase()
+    if (previewableTypes.includes(ext)) {
+      window.open(previewFileUrl(file.id), '_blank')
+    } else {
+      setUploadResult({
+        type: 'error',
+        message: i18n.language === 'zh'
+          ? `「${ext.toUpperCase()}」格式無法在瀏覽器中預覽，請下載後查看`
+          : `"${ext.toUpperCase()}" files cannot be previewed in browser, please download`,
+      })
+      setTimeout(() => setUploadResult(null), 4000)
     }
   }
 
@@ -371,7 +388,13 @@ export default function FileManager() {
                         </svg>
                       </div>
                       <div>
-                        <span className="text-sm font-medium text-slate-800">{file.filename}</span>
+                        <button
+                          onClick={() => handlePreview(file)}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left"
+                          title={i18n.language === 'zh' ? '點擊預覽' : 'Click to preview'}
+                        >
+                          {file.filename}
+                        </button>
                         <p className="text-xs text-slate-500">{formatSize(file.file_size)}</p>
                       </div>
                     </td>

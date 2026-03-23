@@ -32,6 +32,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [FileController::class, 'index']);
         Route::post('/upload', [FileController::class, 'upload']);
         Route::get('/{id}', [FileController::class, 'show']);
+        Route::get('/{id}/preview', [FileController::class, 'preview']);
         Route::get('/{id}/download', [FileController::class, 'download']);
         Route::post('/{id}/retry', [FileController::class, 'retry']);
         Route::delete('/{id}', [FileController::class, 'destroy']);

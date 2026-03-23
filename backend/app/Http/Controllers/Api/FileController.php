@@ -178,6 +178,38 @@ class FileController extends Controller
         return response()->json(['message' => 'File queued for reprocessing']);
     }
 
+    public function preview(Request $request, int $id): BinaryFileResponse|JsonResponse
+    {
+        $file = FileRecord::findOrFail($id);
+        $path = $file->output_path ?: $file->source_path;
+
+        if (!$path || !file_exists($path)) {
+            return response()->json(['message' => 'File not found on disk'], 404);
+        }
+
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $previewable = ['pdf', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'gif', 'svg'];
+
+        if (!in_array($ext, $previewable)) {
+            return response()->json(['previewable' => false, 'message' => 'This file type cannot be previewed in browser, please download it.'], 200);
+        }
+
+        $mimeTypes = [
+            'pdf' => 'application/pdf',
+            'txt' => 'text/plain',
+            'csv' => 'text/csv',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'svg' => 'image/svg+xml',
+        ];
+
+        return response()->file($path, [
+            'Content-Type' => $mimeTypes[$ext] ?? 'application/octet-stream',
+        ]);
+    }
+
     public function show(int $id): JsonResponse
     {
         $file = FileRecord::with(['wordPairs', 'processLogs'])->findOrFail($id);
