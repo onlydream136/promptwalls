@@ -7,6 +7,7 @@ import FileManager from './pages/FileManager'
 import ReIdentification from './pages/ReIdentification'
 import Settings from './pages/Settings'
 import UserManagement from './pages/UserManagement'
+import WordPairManager from './pages/WordPairManager'
 import Login from './pages/Login'
 
 function ProtectedLayout() {
@@ -22,6 +23,7 @@ function ProtectedLayout() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/files" element={<FileManager />} />
             <Route path="/reidentify" element={<ReIdentification />} />
+            <Route path="/wordpairs" element={<WordPairManager />} />
             {isAdmin && <Route path="/users" element={<UserManagement />} />}
             {isAdmin && <Route path="/settings" element={<Settings />} />}
             <Route path="*" element={<Navigate to="/" replace />} />

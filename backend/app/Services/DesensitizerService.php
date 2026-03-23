@@ -18,6 +18,9 @@ class DesensitizerService
      */
     public function desensitize(FileRecord $fileRecord, string $text, array $assessmentResult): string
     {
+        // Pre-load counters from existing user word pairs to avoid placeholder conflicts
+        $this->initCountersFromExistingPairs($fileRecord->user_id);
+
         $useLlm = SystemConfig::get('use_llm_desensitize', 'true') === 'true';
 
         if ($useLlm && !empty($assessmentResult['entities'])) {
@@ -25,6 +28,60 @@ class DesensitizerService
         }
 
         return $this->desensitizeWithRegex($fileRecord, $text, $assessmentResult);
+    }
+
+    /**
+     * Initialize counters from existing word pairs to avoid placeholder conflicts.
+     */
+    private function initCountersFromExistingPairs(?int $userId): void
+    {
+        $this->entityCounters = [];
+
+        if (!$userId) return;
+
+        $existingPairs = WordPair::where('user_id', $userId)->pluck('placeholder');
+
+        foreach ($existingPairs as $placeholder) {
+            // Parse [[PREFIX_NNN]] format
+            if (preg_match('/^\[\[([A-Z]+)_(\d+)\]\]$/', $placeholder, $matches)) {
+                $prefix = $matches[1];
+                $num = (int) $matches[2];
+                if (!isset($this->entityCounters[$prefix]) || $num > $this->entityCounters[$prefix]) {
+                    $this->entityCounters[$prefix] = $num;
+                }
+            }
+        }
+    }
+
+    /**
+     * Find existing word pair for this user with the same original value,
+     * or create a new one.
+     */
+    private function findOrCreatePair(FileRecord $fileRecord, string $originalValue, string $entityType): string
+    {
+        // Check if this user already has a word pair for this value
+        if ($fileRecord->user_id) {
+            $existing = WordPair::where('user_id', $fileRecord->user_id)
+                ->where('original_value', $originalValue)
+                ->first();
+
+            if ($existing) {
+                return $existing->placeholder;
+            }
+        }
+
+        // Create new pair
+        $placeholder = $this->generatePlaceholder($entityType);
+
+        WordPair::create([
+            'file_record_id' => $fileRecord->id,
+            'user_id' => $fileRecord->user_id,
+            'placeholder' => $placeholder,
+            'original_value' => $originalValue,
+            'entity_type' => $entityType,
+        ]);
+
+        return $placeholder;
     }
 
     /**
@@ -83,17 +140,23 @@ PROMPT;
                 $result = json_decode($response->json('response', '{}'), true);
 
                 if (!empty($result['desensitized_text']) && !empty($result['replacements'])) {
-                    // Save word pairs to database
+                    // Save word pairs, reusing existing ones
+                    $finalText = $result['desensitized_text'];
+
                     foreach ($result['replacements'] as $replacement) {
-                        WordPair::create([
-                            'file_record_id' => $fileRecord->id,
-                            'placeholder' => $replacement['placeholder'],
-                            'original_value' => $replacement['original'],
-                            'entity_type' => $replacement['type'] ?? 'unknown',
-                        ]);
+                        $original = $replacement['original'];
+                        $type = $replacement['type'] ?? 'unknown';
+                        $llmPlaceholder = $replacement['placeholder'];
+
+                        $actualPlaceholder = $this->findOrCreatePair($fileRecord, $original, $type);
+
+                        // Replace LLM's placeholder with our consistent one
+                        if ($llmPlaceholder !== $actualPlaceholder) {
+                            $finalText = str_replace($llmPlaceholder, $actualPlaceholder, $finalText);
+                        }
                     }
 
-                    return $result['desensitized_text'];
+                    return $finalText;
                 }
             }
         } catch (\Exception $e) {
@@ -109,8 +172,6 @@ PROMPT;
      */
     private function desensitizeWithRegex(FileRecord $fileRecord, string $text, array $assessmentResult): string
     {
-        $this->entityCounters = [];
-
         if (!empty($assessmentResult['entities'])) {
             foreach ($assessmentResult['entities'] as $entity) {
                 $value = $entity['value'] ?? '';
@@ -120,18 +181,11 @@ PROMPT;
                     continue;
                 }
 
-                $placeholder = $this->generatePlaceholder($type);
+                $placeholder = $this->findOrCreatePair($fileRecord, $value, $type);
 
                 // Escape special regex characters
                 $escaped = preg_quote($value, '/');
                 $text = preg_replace("/{$escaped}/u", $placeholder, $text);
-
-                WordPair::create([
-                    'file_record_id' => $fileRecord->id,
-                    'placeholder' => $placeholder,
-                    'original_value' => $value,
-                    'entity_type' => $type,
-                ]);
             }
         }
 
@@ -146,21 +200,11 @@ PROMPT;
         foreach ($patterns as $type => $pattern) {
             $text = preg_replace_callback($pattern, function ($matches) use ($fileRecord, $type) {
                 $value = $matches[0];
-                // Check if already replaced
                 if (str_starts_with($value, '[[')) {
                     return $value;
                 }
 
-                $placeholder = $this->generatePlaceholder($type);
-
-                WordPair::create([
-                    'file_record_id' => $fileRecord->id,
-                    'placeholder' => $placeholder,
-                    'original_value' => $value,
-                    'entity_type' => $type,
-                ]);
-
-                return $placeholder;
+                return $this->findOrCreatePair($fileRecord, $value, $type);
             }, $text);
         }
 

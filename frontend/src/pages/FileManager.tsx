@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getFiles, getFileCounts, uploadFiles, downloadFile, deleteFile, retryFile, previewFileUrl } from '../api/client'
+import { getFiles, getFileCounts, uploadFiles, downloadFile, deleteFile, retryFile, desensitizeFile, previewFileUrl } from '../api/client'
 
 interface FileItem {
   id: number
@@ -13,7 +13,7 @@ interface FileItem {
   updated_at: string
 }
 
-const tabs = ['incoming', 'clean', 'sensitive', 'desensitized'] as const
+const tabs = ['incoming', 'clean', 'sensitive', 'desensitized', 'restored'] as const
 type Folder = (typeof tabs)[number]
 
 const tabKeys: Record<Folder, string> = {
@@ -21,6 +21,7 @@ const tabKeys: Record<Folder, string> = {
   clean: 'files.clean',
   sensitive: 'files.sensitive',
   desensitized: 'files.desensitized',
+  restored: 'files.restored',
 }
 
 const statusStyles: Record<string, { bg: string; text: string; dot: string }> = {
@@ -31,6 +32,7 @@ const statusStyles: Record<string, { bg: string; text: string; dot: string }> = 
   no_risk: { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
   desensitized: { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
   failed: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
+  restored: { bg: 'bg-teal-100', text: 'text-teal-700', dot: 'bg-teal-500' },
 }
 
 const statusLabels: Record<string, { en: string; zh: string }> = {
@@ -41,6 +43,7 @@ const statusLabels: Record<string, { en: string; zh: string }> = {
   no_risk: { en: 'No Risk', zh: '无风险' },
   desensitized: { en: 'Desensitized', zh: '已脱敏' },
   failed: { en: 'Failed', zh: '处理失败' },
+  restored: { en: 'Restored', zh: '已復原' },
 }
 
 function formatSize(bytes: number): string {
@@ -153,6 +156,30 @@ export default function FileManager() {
       })
     }
   }
+
+  const handleDesensitize = async (file: FileItem) => {
+    try {
+      await desensitizeFile(file.id)
+      setFiles((prev) =>
+        prev.map((f) => (f.id === file.id ? { ...f, status: 'desensitized' } : f))
+      )
+      fetchCounts()
+      setUploadResult({
+        type: 'success',
+        message: i18n.language === 'zh'
+          ? `"${file.filename}" ${t('files.desensitizeSuccess')}`
+          : `"${file.filename}" desensitized successfully`,
+      })
+      setTimeout(() => setUploadResult(null), 3000)
+    } catch {
+      setUploadResult({
+        type: 'error',
+        message: i18n.language === 'zh' ? t('files.desensitizeFailed') : 'Desensitize failed',
+      })
+    }
+  }
+
+  const nonEditableTypes = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff']
 
   const previewableTypes = ['pdf', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'gif', 'svg']
 
@@ -433,6 +460,17 @@ export default function FileManager() {
                               />
                             </svg>
                             {i18n.language === 'zh' ? '重试' : 'Retry'}
+                          </button>
+                        )}
+                        {file.status === 'sensitive' && nonEditableTypes.includes(file.file_type.toLowerCase()) && (
+                          <button
+                            onClick={() => handleDesensitize(file)}
+                            className="inline-flex items-center px-3 py-1.5 bg-white border border-blue-300 rounded text-xs font-semibold text-blue-700 hover:bg-blue-50 transition-all shadow-sm"
+                          >
+                            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+                            </svg>
+                            {t('files.convertToText')}
                           </button>
                         )}
                         <button

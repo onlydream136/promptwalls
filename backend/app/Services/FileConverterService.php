@@ -4,6 +4,7 @@ namespace App\Services;
 
 use PhpOffice\PhpWord\IOFactory as WordIOFactory;
 use PhpOffice\PhpSpreadsheet\IOFactory as SpreadsheetIOFactory;
+use App\Models\WordPair;
 use Smalot\PdfParser\Parser as PdfParser;
 
 class FileConverterService
@@ -182,5 +183,147 @@ class FileConverterService
         $text = preg_replace('/\\\\[a-z]+\d*\s?/', '', $text);
         $text = preg_replace('/[{}]/', '', $text);
         return trim($text);
+    }
+
+    /**
+     * Save desensitized content back to the original file format.
+     * Returns the output file path.
+     */
+    public function saveDesensitized(string $sourcePath, string $desensitizedText, string $outputDir, string $filename, int $fileRecordId = 0): string
+    {
+        $extension = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION));
+
+        if (!is_dir($outputDir)) {
+            mkdir($outputDir, 0755, true);
+        }
+
+        // Get replacement map from WordPair records
+        $replacements = [];
+        if ($fileRecordId > 0) {
+            $wordPairs = WordPair::where('file_record_id', $fileRecordId)->get();
+            foreach ($wordPairs as $pair) {
+                $replacements[$pair->original_value] = $pair->placeholder;
+            }
+        }
+
+        return match ($extension) {
+            'docx', 'doc' => $this->saveAsDocx($sourcePath, $desensitizedText, $outputDir, $filename, $replacements),
+            'xlsx', 'xls' => $this->saveAsXlsx($sourcePath, $desensitizedText, $outputDir, $filename, $replacements),
+            'csv' => $this->saveAsOriginal($desensitizedText, $outputDir, $filename, 'csv'),
+            'txt', 'log' => $this->saveAsOriginal($desensitizedText, $outputDir, $filename, $extension),
+            default => $this->saveAsOriginal($desensitizedText, $outputDir, $filename, 'txt'),
+        };
+    }
+
+    /**
+     * Save desensitized DOCX by replacing text in the original document.
+     */
+    private function saveAsDocx(string $sourcePath, string $desensitizedText, string $outputDir, string $filename, array $replacements): string
+    {
+        $outputFile = $outputDir . DIRECTORY_SEPARATOR . 'desensitized_' . $filename;
+        if (!str_ends_with(strtolower($outputFile), '.docx')) {
+            $outputFile = preg_replace('/\.[^.]+$/', '.docx', $outputFile);
+        }
+
+        try {
+            $phpWord = WordIOFactory::load($sourcePath);
+
+            if (!empty($replacements)) {
+                foreach ($phpWord->getSections() as $section) {
+                    $this->replaceInElements($section->getElements(), $replacements);
+                }
+            }
+
+            $writer = WordIOFactory::createWriter($phpWord, 'Word2007');
+            $writer->save($outputFile);
+        } catch (\Exception $e) {
+            $outputFile = $outputDir . DIRECTORY_SEPARATOR . 'desensitized_' . $filename . '.txt';
+            file_put_contents($outputFile, $desensitizedText);
+        }
+
+        return $outputFile;
+    }
+
+    /**
+     * Save desensitized XLSX by replacing text in the original spreadsheet.
+     */
+    private function saveAsXlsx(string $sourcePath, string $desensitizedText, string $outputDir, string $filename, array $replacements): string
+    {
+        $outputFile = $outputDir . DIRECTORY_SEPARATOR . 'desensitized_' . $filename;
+        if (!str_ends_with(strtolower($outputFile), '.xlsx')) {
+            $outputFile = preg_replace('/\.[^.]+$/', '.xlsx', $outputFile);
+        }
+
+        try {
+            $spreadsheet = SpreadsheetIOFactory::load($sourcePath);
+
+            foreach ($spreadsheet->getAllSheets() as $sheet) {
+                foreach ($sheet->getRowIterator() as $row) {
+                    foreach ($row->getCellIterator() as $cell) {
+                        $cellValue = (string) $cell->getValue();
+                        if (!empty($cellValue)) {
+                            $newValue = str_replace(
+                                array_keys($replacements),
+                                array_values($replacements),
+                                $cellValue
+                            );
+                            if ($newValue !== $cellValue) {
+                                $cell->setValue($newValue);
+                            }
+                        }
+                    }
+                }
+            }
+
+            $writer = SpreadsheetIOFactory::createWriter($spreadsheet, 'Xlsx');
+            $writer->save($outputFile);
+        } catch (\Exception $e) {
+            $outputFile = $outputDir . DIRECTORY_SEPARATOR . 'desensitized_' . $filename . '.txt';
+            file_put_contents($outputFile, $desensitizedText);
+        }
+
+        return $outputFile;
+    }
+
+    /**
+     * Save as original text-based format (txt, csv, etc.)
+     */
+    private function saveAsOriginal(string $desensitizedText, string $outputDir, string $filename, string $ext): string
+    {
+        $baseName = pathinfo($filename, PATHINFO_FILENAME);
+        $outputFile = $outputDir . DIRECTORY_SEPARATOR . 'desensitized_' . $baseName . '.' . $ext;
+        file_put_contents($outputFile, $desensitizedText);
+        return $outputFile;
+    }
+
+    /**
+     * Replace text content in PhpWord elements recursively.
+     */
+    private function replaceInElements($elements, array $replacements): void
+    {
+        if (empty($replacements)) return;
+
+        foreach ($elements as $element) {
+            if ($element instanceof \PhpOffice\PhpWord\Element\Text) {
+                $text = $element->getText();
+                if ($text) {
+                    $newText = str_replace(array_keys($replacements), array_values($replacements), $text);
+                    if ($newText !== $text) {
+                        $element->setText($newText);
+                    }
+                }
+            } elseif ($element instanceof \PhpOffice\PhpWord\Element\Link) {
+                // Links: replace in display text
+                $text = $element->getText();
+                if ($text) {
+                    $newText = str_replace(array_keys($replacements), array_values($replacements), $text);
+                    if ($newText !== $text) {
+                        // Link text is read-only in PhpWord, skip
+                    }
+                }
+            } elseif (method_exists($element, 'getElements')) {
+                $this->replaceInElements($element->getElements(), $replacements);
+            }
+        }
     }
 }

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { uploadReidentifyFile, processReidentify, getWordPairs } from '../api/client'
+import { uploadReidentifyFile, processReidentify, restoreFile, getWordPairs } from '../api/client'
 
 interface WordPair {
   placeholder: string
@@ -24,7 +24,19 @@ export default function ReIdentification() {
   const [complete, setComplete] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [uploadedFilename, setUploadedFilename] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const isTextFormat = (name: string) => {
+    const ext = name.split('.').pop()?.toLowerCase() || ''
+    return ['txt', 'csv', 'log', 'json'].includes(ext)
+  }
+
+  const canRestoreOriginal = (name: string) => {
+    const ext = name.split('.').pop()?.toLowerCase() || ''
+    return ['docx', 'xlsx', 'csv', 'txt', 'log', 'json'].includes(ext)
+  }
 
   const handleFileUpload = async (file: File) => {
     const formData = new FormData()
@@ -33,6 +45,8 @@ export default function ReIdentification() {
     setError('')
     setResult(null)
     setComplete(false)
+    setUploadedFile(file)
+    setUploadedFilename(file.name)
 
     try {
       const res = await uploadReidentifyFile(formData)
@@ -70,6 +84,27 @@ export default function ReIdentification() {
     }
   }
 
+  const handleDownloadRestored = async () => {
+    if (!uploadedFile) return
+    try {
+      const formData = new FormData()
+      formData.append('file', uploadedFile)
+      if (detectedFileId) formData.append('file_record_id', String(detectedFileId))
+      const res = await restoreFile(formData)
+      const ext = uploadedFilename.split('.').pop() || 'txt'
+      const baseName = uploadedFilename.replace(/^desensitized_/, '').replace(/\.[^.]+$/, '')
+      const blob = new Blob([res.data])
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `restored_${baseName}.${ext}`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('Download failed')
+    }
+  }
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       {/* Header */}
@@ -96,7 +131,7 @@ export default function ReIdentification() {
               ref={fileInputRef}
               type="file"
               className="hidden"
-              accept=".txt,.docx,.json"
+              accept=".txt,.docx,.xlsx,.csv,.json"
               onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
             />
             <div className="flex flex-col items-center">
@@ -183,16 +218,7 @@ export default function ReIdentification() {
                   {t('reidentify.resultTitle')}
                 </h3>
                 <button
-                  onClick={() => {
-                    if (!result) return
-                    const blob = new Blob([result.restored_text], { type: 'text/plain;charset=utf-8' })
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement('a')
-                    a.href = url
-                    a.download = 'restored_document.txt'
-                    a.click()
-                    URL.revokeObjectURL(url)
-                  }}
+                  onClick={handleDownloadRestored}
                   className="text-indigo-600 text-sm font-semibold hover:underline"
                 >
                   {t('reidentify.downloadOriginal')}
@@ -266,7 +292,7 @@ export default function ReIdentification() {
             </div>
             {pairs.length > 0 && (
               <div className="p-3 bg-slate-50 border-t border-slate-100">
-                <button className="w-full text-center text-xs text-indigo-600 font-bold hover:text-indigo-800">
+                <button onClick={() => window.location.href = '/wordpairs'} className="w-full text-center text-xs text-indigo-600 font-bold hover:text-indigo-800">
                   {t('reidentify.viewFullMap')}
                 </button>
               </div>

@@ -3,6 +3,7 @@
     "dashboard": "儀表盤",
     "fileManager": "檔案管理",
     "reidentification": "重識別工具",
+    "wordpairs": "詞對管理",
     "userManagement": "帳號管理",
     "settings": "系統設定"
   },
@@ -52,9 +53,10 @@
     "uploadTitle": "上傳檔案至待處理目錄",
     "uploadDesc": "拖曳檔案或點擊瀏覽",
     "incoming": "待處理 (Incoming)",
-    "clean": "無敏感資訊 (Clean)",
-    "sensitive": "已檢測敏感資訊 (Sensitive)",
-    "desensitized": "已脫敏 (Desensitized)",
+    "clean": "無敏感訊息 (Public Safe)",
+    "sensitive": "已檢測敏感訊息 (Private Only)",
+    "desensitized": "已脫敏 (De-identification)",
+    "restored": "已復原 (Restored)",
     "originalName": "原始檔案名稱",
     "format": "格式",
     "processedDate": "處理日期",
@@ -68,13 +70,16 @@
     "showing": "顯示 {{current}} / {{total}} 個檔案",
     "uploading": "上傳中...",
     "uploadSuccess": "成功上傳 {{count}} 個檔案",
-    "uploadFailed": "上傳失敗，請重試"
+    "uploadFailed": "上傳失敗，請重試",
+    "convertToText": "轉文本脫敏",
+    "desensitizeSuccess": "已轉文本脫敏成功",
+    "desensitizeFailed": "脫敏失敗"
   },
   "reidentify": {
     "title": "身份重識別工具",
     "description": "還原資料完整性。上傳從公共大模型接收到的回應，系統將自動根據本地詞對映射表將合成佔位符還原為原始敏感值。",
     "uploadTitle": "上傳公共大模型回應",
-    "uploadDesc": "拖曳 .txt、.docx、json 檔案至此",
+    "uploadDesc": "拖曳 .txt、.docx、.xlsx、.csv、.json 檔案至此",
     "secureLocal": "僅限本地安全處理",
     "processBtn": "執行重識別處理",
     "processing": "處理中...",
@@ -108,6 +113,7 @@
     "noSensitive": "無敏感資訊資料夾",
     "sensitiveFiles": "敏感資訊資料夾",
     "desensitizedFiles": "脫敏檔案資料夾",
+    "restoredFiles": "復原檔案資料夾",
     "strategy": "脫敏替換策略",
     "strategyDesc": "使用通用大模型啟用進階脫敏",
     "generalLlm": "通用大模型",
@@ -156,5 +162,24 @@
     "saveSuccess": "使用者資訊已儲存",
     "cannotDeleteLastAdmin": "無法刪除最後一個管理員",
     "logout": "登出"
+  },
+  "wordpairs": {
+    "title": "詞對管理",
+    "subtitle": "管理脫敏詞對映射，查看、新增、編輯或刪除詞對記錄。",
+    "addPair": "新增詞對",
+    "editPair": "編輯詞對",
+    "placeholder": "佔位符",
+    "originalValue": "原始值",
+    "entityType": "類型",
+    "relatedFile": "關聯檔案",
+    "actions": "操作",
+    "edit": "編輯",
+    "searchPlaceholder": "搜尋佔位符或原始值...",
+    "showing": "顯示 {{current}} / {{total}} 條記錄",
+    "saveSuccess": "詞對已儲存",
+    "saveFailed": "儲存失敗",
+    "deleteConfirm": "確定要刪除這個詞對嗎？",
+    "deleteSuccess": "詞對已刪除",
+    "deleteFailed": "刪除失敗"
   }
 }

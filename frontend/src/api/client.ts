@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://voogpt.com:9005/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
   timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 })
@@ -55,6 +55,7 @@ export const previewFileUrl = (id: number) => {
 export const downloadFile = (id: number) =>
   api.get(`/files/${id}/download`, { responseType: 'blob' })
 export const retryFile = (id: number) => api.post(`/files/${id}/retry`)
+export const desensitizeFile = (id: number) => api.post(`/files/${id}/desensitize`)
 export const deleteFile = (id: number) => api.delete(`/files/${id}`)
 
 // Re-identification
@@ -65,7 +66,22 @@ export const uploadReidentifyFile = (formData: FormData) =>
   })
 export const processReidentify = (data: { text: string; file_record_id?: number }) =>
   api.post('/reidentify/process', data)
+export const restoreFile = (formData: FormData) =>
+  api.post('/reidentify/restore', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    responseType: 'blob',
+    timeout: 120000,
+  })
 export const getWordPairs = (fileId: number) => api.get(`/reidentify/pairs/${fileId}`)
+
+// Word Pairs
+export const getWordPairsList = (params: { search?: string; page?: number }) =>
+  api.get('/wordpairs', { params })
+export const createWordPair = (data: { placeholder: string; original_value: string; entity_type: string }) =>
+  api.post('/wordpairs', data)
+export const updateWordPair = (id: number, data: { placeholder?: string; original_value?: string; entity_type?: string }) =>
+  api.put(`/wordpairs/${id}`, data)
+export const deleteWordPair = (id: number) => api.delete(`/wordpairs/${id}`)
 
 // Settings
 export const getSettings = () => api.get('/settings')

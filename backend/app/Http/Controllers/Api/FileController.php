@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessFileJob;
 use App\Models\FileRecord;
+use App\Models\ProcessLog;
 use App\Models\SystemConfig;
+use App\Services\DesensitizerService;
+use App\Services\FileConverterService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -35,6 +38,7 @@ class FileController extends Controller
             'clean' => $counts['clean'] ?? 0,
             'sensitive' => $counts['sensitive'] ?? 0,
             'desensitized' => $counts['desensitized'] ?? 0,
+            'restored' => $counts['restored'] ?? 0,
         ]);
     }
 
@@ -178,10 +182,73 @@ class FileController extends Controller
         return response()->json(['message' => 'File queued for reprocessing']);
     }
 
-    public function preview(Request $request, int $id): BinaryFileResponse|JsonResponse
+    /**
+     * Manual desensitize for PDF/images - converts to TXT and desensitizes.
+     */
+    public function desensitize(int $id): JsonResponse
     {
         $file = FileRecord::findOrFail($id);
-        $path = $file->output_path ?: $file->source_path;
+
+        if ($file->status !== 'sensitive') {
+            return response()->json(['message' => 'Only sensitive files can be desensitized'], 422);
+        }
+
+        if (empty($file->extracted_text) || empty($file->assessment_result)) {
+            return response()->json(['message' => 'File has no extracted text or assessment'], 422);
+        }
+
+        $desensitizer = app(DesensitizerService::class);
+        $assessment = is_string($file->assessment_result)
+            ? json_decode($file->assessment_result, true)
+            : $file->assessment_result;
+
+        $desensitizedText = $desensitizer->desensitize($file, $file->extracted_text, $assessment);
+
+        // Save as TXT
+        $desensitizedPath = SystemConfig::get('desensitized_files_path', 'C:\\DesentizedFiles');
+        if (!is_dir($desensitizedPath)) {
+            mkdir($desensitizedPath, 0755, true);
+        }
+
+        $outputFile = $desensitizedPath . DIRECTORY_SEPARATOR
+            . 'desensitized_' . pathinfo($file->filename, PATHINFO_FILENAME) . '.txt';
+        file_put_contents($outputFile, $desensitizedText);
+
+        $file->update([
+            'status' => 'desensitized',
+            'folder' => 'desensitized',
+            'output_path' => $outputFile,
+        ]);
+
+        ProcessLog::create([
+            'file_record_id' => $file->id,
+            'action' => 'desensitize',
+            'details' => "Manually desensitized to TXT: {$outputFile}",
+        ]);
+
+        return response()->json(['message' => 'File desensitized successfully']);
+    }
+
+    public function preview(Request $request, int $id): BinaryFileResponse|JsonResponse
+    {
+        // Authenticate via query string token (for browser tab opening)
+        $token = $request->query('token');
+        if ($token) {
+            $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+            if (!$accessToken) {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+        } elseif (!$request->user()) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $file = FileRecord::findOrFail($id);
+
+        // For preview, prefer source file (original format) over desensitized txt
+        $path = $file->source_path;
+        if (!$path || !file_exists($path)) {
+            $path = $file->output_path;
+        }
 
         if (!$path || !file_exists($path)) {
             return response()->json(['message' => 'File not found on disk'], 404);

@@ -178,6 +178,7 @@ export default function Settings() {
               { key: 'no_sensitive_path', label: t('settings.noSensitive') },
               { key: 'sensitive_files_path', label: t('settings.sensitiveFiles') },
               { key: 'desensitized_files_path', label: t('settings.desensitizedFiles') },
+              { key: 'restored_files_path', label: t('settings.restoredFiles') },
             ].map(({ key, label }) => (
               <div key={key} className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                 <label className="text-sm font-medium text-slate-600">{label}</label>

@@ -112,30 +112,42 @@ class ProcessFileJob implements ShouldQueue
                     'details' => "Sensitive info detected: {$assessment['summary']}",
                 ]);
 
-                // Step 4: Desensitize
-                $desensitizedText = $desensitizer->desensitize($file, $text, $assessment);
+                // Step 4: Desensitize (skip for PDF/images - user decides manually)
+                $ext = strtolower($file->file_type);
+                $isNonEditable = in_array($ext, ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif', 'webp']);
 
-                // Save desensitized version
-                $desensitizedPath = SystemConfig::get('desensitized_files_path', 'C:\\DesentizedFiles');
-                $outputFile = $desensitizedPath . DIRECTORY_SEPARATOR . 'desensitized_' . $file->filename . '.txt';
+                if ($isNonEditable) {
+                    // PDF/images: only detect, don't auto-desensitize
+                    ProcessLog::create([
+                        'file_record_id' => $file->id,
+                        'action' => 'assess',
+                        'details' => 'Sensitive info detected in PDF/image - awaiting manual desensitization',
+                    ]);
+                } else {
+                    // DOCX/XLSX/CSV/TXT: auto-desensitize
+                    $desensitizedText = $desensitizer->desensitize($file, $text, $assessment);
 
-                if (!is_dir($desensitizedPath)) {
-                    mkdir($desensitizedPath, 0755, true);
+                    $desensitizedPath = SystemConfig::get('desensitized_files_path', 'C:\\DesentizedFiles');
+                    $outputFile = $converter->saveDesensitized(
+                        $file->source_path,
+                        $desensitizedText,
+                        $desensitizedPath,
+                        $file->filename,
+                        $file->id
+                    );
+
+                    $file->update([
+                        'status' => 'desensitized',
+                        'folder' => 'desensitized',
+                        'output_path' => $outputFile,
+                    ]);
+
+                    ProcessLog::create([
+                        'file_record_id' => $file->id,
+                        'action' => 'desensitize',
+                        'details' => "Desensitized file saved: {$outputFile}",
+                    ]);
                 }
-
-                file_put_contents($outputFile, $desensitizedText);
-
-                $file->update([
-                    'status' => 'desensitized',
-                    'folder' => 'desensitized',
-                    'output_path' => $outputFile,
-                ]);
-
-                ProcessLog::create([
-                    'file_record_id' => $file->id,
-                    'action' => 'desensitize',
-                    'details' => "Desensitized file saved: {$outputFile}",
-                ]);
             }
         } catch (\Exception $e) {
             Log::error('File processing failed', [

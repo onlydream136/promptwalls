@@ -47,6 +47,18 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    path: '/wordpairs',
+    key: 'wordpairs',
+    icon: (
+      <path
+        d="M4 6h16M4 10h16M4 14h16M4 18h16"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+      />
+    ),
+  },
+  {
     path: '/users',
     key: 'userManagement',
     adminOnly: true,

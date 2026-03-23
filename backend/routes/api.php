@@ -6,11 +6,15 @@ use App\Http\Controllers\Api\FileController;
 use App\Http\Controllers\Api\ReIdentifyController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\WordPairController;
 use App\Http\Middleware\AdminOnly;
 use Illuminate\Support\Facades\Route;
 
 // Auth (public)
 Route::post('/auth/login', [AuthController::class, 'login']);
+
+// File preview (supports token via query string for browser tab opening)
+Route::get('/files/{id}/preview', [FileController::class, 'preview']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -32,9 +36,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [FileController::class, 'index']);
         Route::post('/upload', [FileController::class, 'upload']);
         Route::get('/{id}', [FileController::class, 'show']);
-        Route::get('/{id}/preview', [FileController::class, 'preview']);
         Route::get('/{id}/download', [FileController::class, 'download']);
         Route::post('/{id}/retry', [FileController::class, 'retry']);
+        Route::post('/{id}/desensitize', [FileController::class, 'desensitize']);
         Route::delete('/{id}', [FileController::class, 'destroy']);
     });
 
@@ -43,7 +47,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/files', [ReIdentifyController::class, 'listFiles']);
         Route::post('/upload', [ReIdentifyController::class, 'upload']);
         Route::post('/process', [ReIdentifyController::class, 'process']);
+        Route::post('/restore', [ReIdentifyController::class, 'restore']);
         Route::get('/pairs/{fileId}', [ReIdentifyController::class, 'pairs']);
+    });
+
+    // Word Pairs Management
+    Route::prefix('wordpairs')->group(function () {
+        Route::get('/', [WordPairController::class, 'index']);
+        Route::post('/', [WordPairController::class, 'store']);
+        Route::put('/{id}', [WordPairController::class, 'update']);
+        Route::delete('/{id}', [WordPairController::class, 'destroy']);
     });
 
     // Settings (admin only)

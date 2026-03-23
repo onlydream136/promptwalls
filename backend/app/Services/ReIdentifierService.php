@@ -8,14 +8,14 @@ class ReIdentifierService
 {
     /**
      * Re-identify text by replacing placeholders with original values.
-     * Searches across all word pairs or within a specific file's pairs.
+     * Uses all word pairs belonging to the current user.
      */
-    public function reidentify(string $text, ?int $fileRecordId = null): array
+    public function reidentify(string $text, ?int $userId = null): array
     {
         $query = WordPair::query();
 
-        if ($fileRecordId) {
-            $query->where('file_record_id', $fileRecordId);
+        if ($userId) {
+            $query->where('user_id', $userId);
         }
 
         $pairs = $query->get();
@@ -43,9 +43,8 @@ class ReIdentifierService
     /**
      * Auto-detect which file record's word pairs match the text.
      */
-    public function detectFileRecord(string $text): ?int
+    public function detectFileRecord(string $text, ?int $userId = null): ?int
     {
-        // Find all unique placeholders in the text
         preg_match_all('/\[\[[A-Z_]+\d{3}\]\]/', $text, $matches);
 
         if (empty($matches[0])) {
@@ -54,9 +53,12 @@ class ReIdentifierService
 
         $placeholders = array_unique($matches[0]);
 
-        // Find which file_record_id has the most matching pairs
-        $counts = WordPair::whereIn('placeholder', $placeholders)
-            ->selectRaw('file_record_id, COUNT(*) as match_count')
+        $query = WordPair::whereIn('placeholder', $placeholders);
+        if ($userId) {
+            $query->where('user_id', $userId);
+        }
+
+        $counts = $query->selectRaw('file_record_id, COUNT(*) as match_count')
             ->groupBy('file_record_id')
             ->orderByDesc('match_count')
             ->first();
