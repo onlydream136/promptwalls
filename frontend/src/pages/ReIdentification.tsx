@@ -100,7 +100,8 @@ export default function ReIdentification() {
       a.download = `restored_${baseName}.${ext}`
       a.click()
       URL.revokeObjectURL(url)
-    } catch {
+    } catch (err: any) {
+      console.error('Restore error:', err?.response?.status, err?.response?.data, err?.message)
       setError('Download failed')
     }
   }

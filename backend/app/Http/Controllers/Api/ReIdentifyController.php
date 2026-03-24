@@ -120,12 +120,47 @@ class ReIdentifyController extends Controller
             switch ($extension) {
                 case 'docx':
                 case 'doc':
-                    $phpWord = WordIOFactory::load($tmpPath);
-                    foreach ($phpWord->getSections() as $section) {
-                        $this->replaceInWordElements($section->getElements(), $replacements);
+                    // Check if file is actually a valid zip (docx) or plain text with wrong extension
+                    $fh = fopen($tmpPath, 'r');
+                    $header = fread($fh, 4);
+                    fclose($fh);
+                    if ($header === "PK\x03\x04") {
+                        // Valid DOCX (zip format) - directly manipulate XML
+                        copy($tmpPath, $outputPath);
+                        $zip = new \ZipArchive();
+                        if ($zip->open($outputPath) !== true) {
+                            throw new \Exception('Cannot open DOCX as ZIP');
+                        }
+                        $xmlFiles = ['word/document.xml', 'word/header1.xml', 'word/header2.xml', 'word/footer1.xml', 'word/footer2.xml'];
+                        foreach ($xmlFiles as $xmlFile) {
+                            $xml = $zip->getFromName($xmlFile);
+                            if ($xml === false) continue;
+                            $modified = false;
+                            foreach ($replacements as $placeholder => $original) {
+                                $escapedPlaceholder = htmlspecialchars($placeholder, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                                $escapedOriginal = htmlspecialchars($original, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                                if (strpos($xml, $escapedPlaceholder) !== false) {
+                                    $xml = str_replace($escapedPlaceholder, $escapedOriginal, $xml);
+                                    $modified = true;
+                                }
+                                if (strpos($xml, $placeholder) !== false) {
+                                    $xml = str_replace($placeholder, $original, $xml);
+                                    $modified = true;
+                                }
+                            }
+                            if ($modified) {
+                                $zip->addFromString($xmlFile, $xml);
+                            }
+                        }
+                        $zip->close();
+                    } else {
+                        // Plain text with .docx extension - treat as text
+                        $content = file_get_contents($tmpPath);
+                        $content = str_replace(array_keys($replacements), array_values($replacements), $content);
+                        $outputPath = $tmpDir . DIRECTORY_SEPARATOR . 'restored_' . $originalName . '.txt';
+                        file_put_contents($outputPath, $content);
+                        $extension = 'txt';
                     }
-                    $writer = WordIOFactory::createWriter($phpWord, 'Word2007');
-                    $writer->save($outputPath);
                     break;
 
                 case 'xlsx':

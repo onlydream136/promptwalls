@@ -197,10 +197,15 @@ class FileConverterService
             mkdir($outputDir, 0755, true);
         }
 
-        // Get replacement map from WordPair records
+        // Get replacement map from WordPair records (by user_id for consistency)
         $replacements = [];
         if ($fileRecordId > 0) {
-            $wordPairs = WordPair::where('file_record_id', $fileRecordId)->get();
+            $fileRecord = \App\Models\FileRecord::find($fileRecordId);
+            if ($fileRecord && $fileRecord->user_id) {
+                $wordPairs = WordPair::where('user_id', $fileRecord->user_id)->get();
+            } else {
+                $wordPairs = WordPair::where('file_record_id', $fileRecordId)->get();
+            }
             foreach ($wordPairs as $pair) {
                 $replacements[$pair->original_value] = $pair->placeholder;
             }
@@ -226,18 +231,50 @@ class FileConverterService
         }
 
         try {
-            $phpWord = WordIOFactory::load($sourcePath);
+            if (empty($replacements)) {
+                copy($sourcePath, $outputFile);
+                return $outputFile;
+            }
 
-            if (!empty($replacements)) {
-                foreach ($phpWord->getSections() as $section) {
-                    $this->replaceInElements($section->getElements(), $replacements);
+            // Directly manipulate DOCX XML to replace text (handles links, text, everything)
+            copy($sourcePath, $outputFile);
+            $zip = new \ZipArchive();
+            if ($zip->open($outputFile) !== true) {
+                throw new \Exception('Cannot open DOCX as ZIP');
+            }
+
+            // Process all XML files that may contain text
+            $xmlFiles = ['word/document.xml', 'word/header1.xml', 'word/header2.xml', 'word/footer1.xml', 'word/footer2.xml'];
+            foreach ($xmlFiles as $xmlFile) {
+                $xml = $zip->getFromName($xmlFile);
+                if ($xml === false) continue;
+
+                $modified = false;
+                foreach ($replacements as $original => $placeholder) {
+                    $escaped = htmlspecialchars($original, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                    if (strpos($xml, $escaped) !== false) {
+                        $escapedPlaceholder = htmlspecialchars($placeholder, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                        $xml = str_replace($escaped, $escapedPlaceholder, $xml);
+                        // Also replace in hyperlink URLs (mailto:, http://, etc.)
+                        $xml = str_replace(urlencode($original), urlencode($placeholder), $xml);
+                        $modified = true;
+                    }
+                    // Also try raw (non-escaped) replacement for URLs in attributes
+                    if (strpos($xml, $original) !== false) {
+                        $xml = str_replace($original, $placeholder, $xml);
+                        $modified = true;
+                    }
+                }
+
+                if ($modified) {
+                    $zip->addFromString($xmlFile, $xml);
                 }
             }
 
-            $writer = WordIOFactory::createWriter($phpWord, 'Word2007');
-            $writer->save($outputFile);
+            $zip->close();
         } catch (\Exception $e) {
-            $outputFile = $outputDir . DIRECTORY_SEPARATOR . 'desensitized_' . $filename . '.txt';
+            $baseName = preg_replace('/\.[^.]+$/', '', $filename);
+            $outputFile = $outputDir . DIRECTORY_SEPARATOR . 'desensitized_' . $baseName . '.txt';
             file_put_contents($outputFile, $desensitizedText);
         }
 
@@ -278,7 +315,8 @@ class FileConverterService
             $writer = SpreadsheetIOFactory::createWriter($spreadsheet, 'Xlsx');
             $writer->save($outputFile);
         } catch (\Exception $e) {
-            $outputFile = $outputDir . DIRECTORY_SEPARATOR . 'desensitized_' . $filename . '.txt';
+            $baseName = preg_replace('/\.[^.]+$/', '', $filename);
+            $outputFile = $outputDir . DIRECTORY_SEPARATOR . 'desensitized_' . $baseName . '.txt';
             file_put_contents($outputFile, $desensitizedText);
         }
 
@@ -313,14 +351,26 @@ class FileConverterService
                     }
                 }
             } elseif ($element instanceof \PhpOffice\PhpWord\Element\Link) {
-                // Links: replace in display text
-                $text = $element->getText();
-                if ($text) {
-                    $newText = str_replace(array_keys($replacements), array_values($replacements), $text);
-                    if ($newText !== $text) {
-                        // Link text is read-only in PhpWord, skip
+                // Links: replace text and clear the hyperlink to make it plain text
+                $linkText = $element->getText();
+                if ($linkText) {
+                    $newText = str_replace(array_keys($replacements), array_values($replacements), $linkText);
+                    try {
+                        $ref = new \ReflectionClass($element);
+                        $prop = $ref->getProperty('text');
+                        $prop->setAccessible(true);
+                        $prop->setValue($element, $newText);
+                        // Clear the source URL so it becomes plain text, prevents PhpWord from dropping the element
+                        $srcProp = $ref->getProperty('source');
+                        $srcProp->setAccessible(true);
+                        $srcProp->setValue($element, '');
+                    } catch (\Exception $e) {
+                        // Skip if reflection fails
                     }
                 }
+            } elseif ($element instanceof \PhpOffice\PhpWord\Element\TextRun) {
+                // TextRun contains child elements (Text, Link, etc.)
+                $this->replaceInElements($element->getElements(), $replacements);
             } elseif (method_exists($element, 'getElements')) {
                 $this->replaceInElements($element->getElements(), $replacements);
             }
